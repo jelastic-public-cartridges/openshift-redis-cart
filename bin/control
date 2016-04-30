@@ -1,0 +1,184 @@
+#!/bin/bash
+
+. /etc/jelastic/environment
+
+[ ! -d "/opt/redis/data/.redis/dbs" ] && mkdir -p /opt/redis/data/.redis/dbs
+
+pid=/opt/repo/pid/redis.pid
+sentinel_pid=/opt/repo/pid/redis-sentinel.pid
+
+SENTINEL_ON="1"
+
+if [ -n "$REDIS_PASSWORD" ]; then
+    CLI_AUTH="-a $REDIS_PASSWORD"
+fi
+
+
+REDIS_CLI="-h $OPENSHIFT_REDIS_HOST -p $OPENSHIFT_REDIS_PORT $CLI_AUTH"
+REDIS_SENTINEL_CLI="-h $OPENSHIFT_REDIS_SENTINEL_HOST -p $OPENSHIFT_REDIS_SENTINEL_PORT $CLI_AUTH"
+
+function start() {
+    [ -f "$pid" ] && [ -z "$(ps aux|grep "redis-server" | grep -v "redis-sentinel" | grep -v grep)" ] && rm -f $pid;
+    [ -f "$sentinel_pid" ] && [ -z "$(ps aux|grep "redis-sentinel" | grep -v grep)" ] && rm -f $sentinel_pid;
+    if ! [ -f $pid ]; then
+        kill -9 $(ps aux|grep "redis-server" | grep -v "redis-sentinel" | grep -v grep | awk '{print $2}') 2>/dev/null;
+        chmod 755 /opt/repo/env;
+        echo $REDIS_CLI > /opt/repo/env/REDIS_CLI;
+        chmod 555 /opt/repo/env;
+        erb /opt/repo/conf/redis.conf.erb > /opt/repo/conf/redis.conf; /opt/repo/versions/${Version}/bin/redis-server /opt/repo/conf/redis.conf
+
+        ret=$?
+        if [ $ret -ne 0 ]; then
+            echo "Redis failed to start - $ret" 1>&2
+            return $ret
+        fi
+        echo "Redis node started successfully!"
+    else
+        echo "Redis server is already started"
+    fi
+    if [ $SENTINEL_ON == "1" ]; then
+    	if ! [ -f $sentinel_pid ]; then
+            kill -9 $(ps aux| grep "redis-sentinel" | grep -v grep | awk '{print $2}') 2>/dev/null;
+            chmod 755 /opt/repo/env;
+            echo $REDIS_SENTINEL_CLI > /opt/repo/env/REDIS_SENTINEL_CLI
+            chmod 555 /opt/repo/env;
+            erb /opt/repo/conf/redis-sentinel.conf.erb > /opt/repo/conf/redis-sentinel.conf; /opt/repo/versions/${Version}/bin/redis-sentinel /opt/repo/conf/redis-sentinel.conf
+            ret=$?
+            if [ $ret -ne 0 ]; then
+                echo "Redis Sentinel failed to start - $ret" 1>&2
+                return $ret
+            fi
+    	fi
+    fi
+}
+
+function use-source() {
+    if ! [ $# -gt 0 ]; then
+        echo "Usage: $0 git-repository-url [commit]"
+        return 1
+    fi
+    set -e
+    stop
+    mkdir -p $TMP/_env/
+    rm -rf $TMP/_env/*
+    cp env/* $TMP/_env/
+    rm -rf .??* *
+    if [ -n $2 ]; then
+        echo "Switching to using source from $1, commit $2"
+        git clone $1 -b $2 .
+    else
+        echo "Switching to using source from $1"
+        git clone $1 .
+    fi
+    mkdir -p env
+    cp $TMP/_env/* env/
+    
+    bin/setup
+}
+
+function update() {
+    stop
+    ./.openshift/action_hooks/build
+}
+
+function status() {
+    if [ -f $pid ] && ( kill -0 $(cat $pid) ); then
+        echo "Redis is running"
+    else
+        echo "Redis is not running"
+    fi
+
+    if [ -f $sentinel_pid ] && ( kill -0 $(cat $sentinel_pid) ); then
+        echo "Redis Sentinel is running"
+    else
+        echo "Redis Sentinel is not running"
+    fi
+}
+
+function stop() {
+    local redis_process=$(ps aux | grep redis-server | grep -v grep);
+    [ -z "$redis_process" ] && echo "Redis server is already stopped" && return 0;
+    m=0
+    s=0
+
+    if [ -f $pid ]; then
+        redis-cli $REDIS_CLI SHUTDOWN
+        m=$?
+    fi
+
+    if [ -f $sentinel_pid ]; then
+        kill -9 $(cat pid/redis-sentinel.pid) 2>/dev/null;
+	rm -f $sentinel_pid;
+        s=$?
+    fi
+
+    if [ $m -eq 0 ] && [ $s -eq 0 ]; then
+        echo "Redis node stopped!"
+        return 0
+    fi
+
+    if [ -f $pid ]; then
+        kill -s SIGTERM $(cat $pid) 2>/dev/null;
+        rm $pid
+    fi
+
+    if [ -f $sentinel_pid ]; then
+        kill -s SIGTERM $(cat $sentinel_pid) 2>/dev/null;
+        rm $sentinel_pid
+    fi        
+
+    return 1
+}
+
+
+function restart() {
+    if (stop); then
+        start
+    else
+        start
+    fi
+}
+
+function build() {
+    echo
+}
+
+function post-deploy() {
+    echo
+}
+
+function pre-build() {
+    echo
+}
+
+function tidy() {
+    echo
+}
+
+#
+#  main():
+#
+
+# Ensure arguments.
+if ! [ $# -gt 0 ]; then
+    echo "Usage: $0 [start|restart|graceful|graceful-stop|stop|status|update|use-source]"
+    exit 1
+fi
+
+# Source utility functions.
+source $OPENSHIFT_CARTRIDGE_SDK_BASH
+
+# Handle commands.
+case "$1" in
+    start)               start       ;;
+    restart|graceful)    restart     ;;
+    graceful-stop|stop)  stop        ;;
+    status)              status      ;;
+    build)               build       ;;
+    pre-build)           pre-build   ;;
+    post-deploy)         post-deploy ;;
+    tidy)                tidy        ;;
+    update)              update      ;;
+    use-source)          use-source  $2 $3 ;;
+    *)
+esac 

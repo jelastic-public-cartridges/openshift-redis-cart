@@ -1,0 +1,36 @@
+#!/bin/bash -e
+
+. /etc/jelastic/environment
+
+for dir in logs pid tmp env; do
+	mkdir -p $dir
+done
+
+mv /opt/repo/logrotate /etc/logrotate.d/redis;
+
+chown root:root /etc/logrotate.d/redis;
+
+echo 'net.core.somaxconn=65535' >> /etc/sysctl.conf;
+sysctl -p 2>/dev/null 1>/dev/null
+
+set -u
+
+mkdir -p $OPENSHIFT_DATA_DIR/.redis/dbs
+
+echo $(pwd)/versions/${Version}/bin > env/OPENSHIFT_REDIS_PATH_ELEMENT
+
+if ! [ ${REDIS_PASSWORD+x} ]; then
+  cat /dev/urandom | head -c${1:-32} | sha256sum | base64 | head -c 40 > env/REDIS_PASSWORD
+  client_result "Redis is now configured with a default password $(cat env/REDIS_PASSWORD)"
+fi
+
+client_result "You can configure various Redis scaling and persistence modes by setting"
+client_result "environment variables - consult the cartridge README for more info."
+
+which gem && exit 0;
+cd /tmp
+wget "http://production.cf.rubygems.org/rubygems/rubygems-2.2.2.tgz" -O /tmp/rubygems.tgz
+tar xfvz rubygems.tgz && cd rubygems-2.2.2/ && ruby setup.rb --no-ri --no-rdoc;
+gem install redis --no-ri --no-rdoc;
+
+#chmod -Rf  555 $CARTRIDGE_HOME/env &>/dev/null;

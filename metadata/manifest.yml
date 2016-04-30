@@ -1,0 +1,46 @@
+Name: redis
+Cartridge-Short-Name: REDIS
+Display-Name: Redis
+Description: "Redis is a NoSQL database server"
+Version: "2.8"
+Source-Url: https://github.com/jelastic-public-cartridges/openshift-redis-cart.git
+Cartridge-Version: 0.1.0
+License: GPL
+Vendor: jelastic
+Cartridge-Vendor: jelastic
+Categories:
+  - service
+  - database
+  - embedded
+Provides:
+  - redis-2.8
+  - redis
+Scaling:
+  Min: 1
+  Max: -1
+Endpoints:
+  - Private-IP-Name:   HOST
+    Private-Port-Name: PORT
+    Private-Port:      6379
+    Public-Port-Name:  PROXY_PORT
+  - Private-IP-Name:   SENTINEL_HOST
+    Private-Port-Name: SENTINEL_PORT
+    Private-Port:      26379
+    Public-Port-Name:  SENTINEL_PROXY_PORT
+Cart-Data:
+  - Key: OPENSHIFT_REDIS_DB_PASSWORD
+    Type: environment
+    Description: "Redis database password"
+Subscribes:
+  reset-password-info:
+    Type: "FILESYSTEM:reset-password"
+    Required: false
+  set-redis-connection-info:
+    Type: "ENV:NET_TCP:db:redis:connection-info-v1"
+    Required: false
+Publishes:
+  publish-db-connection-info:
+    Type: "ENV:NET_TCP:db:connection-info"
+  publish-redis-connection-info:
+    Type: "ENV:NET_TCP:db:redis:connection-info-v1"
+
