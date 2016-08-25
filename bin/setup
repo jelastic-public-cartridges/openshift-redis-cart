@@ -10,6 +10,10 @@ mv /opt/repo/logrotate /etc/logrotate.d/redis;
 
 chown root:root /etc/logrotate.d/redis;
 
+erb /opt/repo/conf/redis.conf.erb > /opt/repo/conf/redis.conf; 
+
+erb /opt/repo/conf/redis-sentinel.conf.erb > /opt/repo/conf/redis-sentinel.conf;
+
 echo 'net.core.somaxconn=65535' >> /etc/sysctl.conf;
 sysctl -p 2>/dev/null 1>/dev/null
 
