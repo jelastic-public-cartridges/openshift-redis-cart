@@ -25,7 +25,7 @@ function start() {
         chmod 755 /opt/repo/env;
         echo $REDIS_CLI > /opt/repo/env/REDIS_CLI;
         chmod 555 /opt/repo/env;
-        erb /opt/repo/conf/redis.conf.erb > /opt/repo/conf/redis.conf; /opt/repo/versions/${Version}/bin/redis-server /opt/repo/conf/redis.conf
+        /opt/repo/versions/${Version}/bin/redis-server /opt/repo/conf/redis.conf
 
         ret=$?
         if [ $ret -ne 0 ]; then
@@ -42,7 +42,7 @@ function start() {
             chmod 755 /opt/repo/env;
             echo $REDIS_SENTINEL_CLI > /opt/repo/env/REDIS_SENTINEL_CLI
             chmod 555 /opt/repo/env;
-            erb /opt/repo/conf/redis-sentinel.conf.erb > /opt/repo/conf/redis-sentinel.conf; /opt/repo/versions/${Version}/bin/redis-sentinel /opt/repo/conf/redis-sentinel.conf
+            /opt/repo/versions/${Version}/bin/redis-sentinel /opt/repo/conf/redis-sentinel.conf
             ret=$?
             if [ $ret -ne 0 ]; then
                 echo "Redis Sentinel failed to start - $ret" 1>&2
