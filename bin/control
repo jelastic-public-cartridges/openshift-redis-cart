@@ -96,7 +96,7 @@ function status() {
 }
 
 function stop() {
-    local redis_process=$(ps aux | grep redis-server | grep -v grep);
+    local redis_process=$(ps aux | grep -E '(redis-server|redis-sentinel)' | grep -v grep);
     [ -z "$redis_process" ] && echo "Redis server is already stopped" && return 0;
     m=0
     s=0
@@ -107,14 +107,9 @@ function stop() {
     fi
 
     if [ -f $sentinel_pid ]; then
-        kill -9 $(cat pid/redis-sentinel.pid) 2>/dev/null;
+        kill -9 $(cat $sentinel_pid) 2>/dev/null;
 	rm -f $sentinel_pid;
         s=$?
-    fi
-
-    if [ $m -eq 0 ] && [ $s -eq 0 ]; then
-        echo "Redis node stopped!"
-        return 0
     fi
 
     if [ -f $pid ]; then
@@ -126,6 +121,10 @@ function stop() {
         kill -s SIGTERM $(cat $sentinel_pid) 2>/dev/null;
         rm $sentinel_pid
     fi        
+    if [ $m -eq 0 ] && [ $s -eq 0 ]; then
+        echo "Redis node stopped!"
+        return 0
+    fi
 
     return 1
 }
