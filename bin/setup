@@ -9,6 +9,7 @@ done
 mv /opt/repo/logrotate /etc/logrotate.d/redis;
 
 chown root:root /etc/logrotate.d/redis;
+export REDIS_PASSWORD REDIS_MAXMEMORY REDIS_APPENDONLY
 
 erb /opt/repo/conf/redis.conf.erb > /opt/repo/conf/redis.conf; 
 
